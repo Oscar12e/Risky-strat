@@ -24,5 +24,5 @@ void initializeClient();
 void asignPage(); //To client
 void displayContent();
 void menu();
-void handleClient();
+void* handleClient(void*);
 #endif

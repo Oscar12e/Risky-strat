@@ -50,7 +50,7 @@ void* handleClient(void* socket){
     do {
         valread = read(*clientSock, in, sizeof(int));
         
-        sem_wait(sem_peticiones);
+        sem_wait(&sem_peticiones);
         switch (*in){
         case ALLOC:
             allocData(clientSock);
