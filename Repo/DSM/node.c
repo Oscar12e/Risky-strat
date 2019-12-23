@@ -78,7 +78,7 @@ void setupPages(){
     long buffer[3] = {0}; // {pageSize, pagesPerNode, 0}; 
     int valread = read(server, buffer, sizeof(long) * 3); 
 
-    long pageSize = buffer[0];
+    pageSize = buffer[0];
     long pagesToAlloc = buffer[1];
     indexStart = buffer[2];
 
@@ -110,9 +110,14 @@ void allocInMemory(){
     long newOccupied = dataPage->occupied + size;
 
     if (newOccupied > pageSize){
+        #if DEBUG
+            printf("Pagina sin espacio %ld - %ld.\n", newOccupied, pageSize);
+        #endif
         int op = ERROR;
         send(server, &op, sizeof(int), 0);
     } else {
+        int op = OK;
+        send(server, &op, sizeof(int), 0);
         dataPage->occupied += size; //Note we can have a segmentation default here
 
         //Create a new reference with the data
