@@ -28,7 +28,9 @@ int dsm_malloc(size_t size){
         printf("Pagina enviada\n");
     #endif 
     //Then the size
-    send(server, &size, sizeof(size_t), 0);
+    size_t* sizeBuff = malloc(sizeof(size_t));
+    *sizeBuff = size;
+    send(server, sizeBuff, sizeof(size_t), 0);
     #if DEBUG
         printf("Tamaño a reservar enviado\n");
     #endif 
