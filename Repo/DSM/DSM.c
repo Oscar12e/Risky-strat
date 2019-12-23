@@ -42,25 +42,25 @@ int containsClient(int node){
     return 0;
 }
 
-void handleClient(void* socket){
-    int clientSock = *socket;
+void* handleClient(void* socket){
+    int* clientSock = (int *) socket;
     int *in = malloc(sizeof(int));
     int valread;
 
     do {
         valread = read(*clientSock, in, sizeof(int));
         
-        sem_wait(&sem_peticiones);
+        sem_wait(sem_peticiones);
         switch (*in){
         case ALLOC:
-            allocData(&clientSock);
+            allocData(clientSock);
             break;
         case OVERWRITE:
-            storeData(&clientSock);
+            storeData(clientSock);
             /* code */
             break;
         case READ:
-            readStored(&clientSock);
+            readStored(clientSock);
             /* code */
             break;
         default:

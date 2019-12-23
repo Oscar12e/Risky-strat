@@ -119,3 +119,7 @@ int initConnection(){
     //Connection is open by now on
     return 1; 
 }
+
+int main(){
+    return 0;
+}
