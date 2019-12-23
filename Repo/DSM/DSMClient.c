@@ -57,6 +57,7 @@ int dsm_malloc(size_t size){
 }
 
 void* dsm_read(int variable){
+    sem_wait(&peticiones);
     //As always, the operation first
     int op = READ;
     send(server, &op, sizeof(int), 0);
@@ -74,6 +75,7 @@ void* dsm_read(int variable){
     void* data = malloc(sizeof(var->size));
     read(server, data, sizeof(var->size));
 
+    sem_post(&peticiones);
     return data;
 }
 
