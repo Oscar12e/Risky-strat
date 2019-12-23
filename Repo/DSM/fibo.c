@@ -19,10 +19,14 @@ int main(){
     int longNVar = dsm_malloc(sizeof(int) * 4);
     printf("Malloc done\n");
     dsm_overwrite(longNVar, longNumbers);
-    printf("Write\n");
+    printf("Write done\n");
+    printf("Read start\n");
+    sleep(1);
+    printf("Read start2\n");
     int * readed = dsm_read(longNVar);
-    printf("Write done");
+    printf("read done");
     printf("REad\n");
+    sleep(1);
     printf("%d\n",readed[2]);
 
     //fibo(50);

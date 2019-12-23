@@ -34,13 +34,10 @@ int dsm_malloc(size_t size){
 
     if (result == OK){
         //If there was no error, then we wait for the reference
-        dsm_var *var = malloc(sizeof(dsm_var));
-        read(server, var, sizeof(dsm_var));
+        var_ref *var = malloc(sizeof(var_ref));
+        read(server, var, sizeof(var_ref));
         vector_add(&variables, var);
 
-            #if DEBUG
-                printf("var de %ld\n", var->size);
-            #endif 
         sem_post(&peticiones);
         return vector_total(&variables) - 1;
     } else {
@@ -64,9 +61,16 @@ void* dsm_read(int variable){
     int op = READ;
     send(server, &op, sizeof(int), 0);
     //Get the internal reference to the var and send it
-    dsm_var* var = vector_get(&variables, variable);
-    send(server, var, sizeof(dsm_var), 0);
+    var_ref* var = vector_get(&variables, variable);
+    #if DEBUG
+        printf("leyendo var de %ld\n", var->size);
+    #endif 
+    send(server, var, sizeof(var_ref), 0);
     //Send the data to overwrite the node
+
+    #if DEBUG
+        printf("Kidding me%ld\n", var->size);
+    #endif 
     void* data = malloc(sizeof(var->size));
     read(server, data, sizeof(var->size));
 
@@ -79,12 +83,12 @@ void dsm_overwrite(int variable, void* data){
     int op = OVERWRITE;
     send(server, &op, sizeof(int), 0);
     //Get the internal reference to the var and send it
-    dsm_var* var = vector_get(&variables, variable);
-    send(server, var, sizeof(dsm_var), 0);
+    var_ref* var = vector_get(&variables, variable);
+
+    send(server, var, sizeof(var_ref), 0);
+    
     //Send the data to overwrite the node
-    void* dataBuffer = malloc(sizeof(var->size));
-    dataBuffer = data;
-    send(server, dataBuffer, sizeof(var->size), 0);
+    send(server, data, sizeof(var->size), 0);
     sem_post(&peticiones);
     return;
 }

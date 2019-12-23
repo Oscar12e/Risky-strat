@@ -153,6 +153,7 @@ void writeInMemory(){
 }
 
 void readMemory(){
+    printf("Reading\n");
     var_ref* var = malloc(sizeof(var_ref));
     int valread = read(server, var, sizeof(var_ref));
 
@@ -166,6 +167,7 @@ void readMemory(){
     }
 
     //To finish we send back the data we read
+    printf("Reading done");
     send(server, data, var->size, 0);
 }
 

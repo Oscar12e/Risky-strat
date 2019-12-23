@@ -12,14 +12,6 @@
 //I need a reference to the memory i have used
 //Only a int of the client but a reference to me
 
-
-
-typedef struct dsm_var {
-    long pageNum;
-    size_t offset;
-    size_t size;
-} dsm_var;
-
 int initConnection();
 int dsm_malloc(size_t size);
 void* dsm_read();

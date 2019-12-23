@@ -72,7 +72,7 @@ void* handleClient(void* socket){
                 /* code */
                 break;
             case READ:
-                readStored(clientSock);
+                readStored(*clientSock);
                 /* code */
                 break;
             default:
@@ -150,10 +150,6 @@ void allocData(int client){
     size_t* size = malloc(sizeof(size_t));
     read(client, size, sizeof(size_t));
 
-    #if DEBUG
-        printf("Size %ld \n", *size);
-    #endif 
-
     int frame = *pageNum / pagesPerNode;
     int* node = vector_get(&dsmNodes, frame);
     
@@ -199,7 +195,7 @@ void storeData(int client){
     printf("Storing from server\n");
     var_ref* varRef = malloc(sizeof(var_ref));
     read(client, varRef, sizeof(var_ref));
-    printf("Stored %ld\n", varRef->size);
+    printf("Reading %ld bytes stored\n", varRef->size);
 
     //Get the data from the client
     void* dataBuffer = malloc(sizeof(varRef->size));
@@ -219,15 +215,16 @@ void storeData(int client){
 
     //And then send the data to the node to overwrite the space in the node
     send(*node, dataBuffer, varRef->size, 0);
+    printf("Data stored done\n");
 }
 
 
-void readStored(int* client){
+void readStored(int client){
     //Get the actual variable info
     //Use that info to access the page
     printf("Inicio de la lectura\n");
     var_ref* varRef = malloc(sizeof(var_ref));
-    read(*client, varRef, sizeof(var_ref));
+    read(client, varRef, sizeof(var_ref));
 
     printf("TAmañp de la wea %ld", varRef->size);
 
@@ -242,12 +239,13 @@ void readStored(int* client){
     printf("Instruccion al nodo enviada\n");
     send(*node, varRef, sizeof( var_ref ), 0);
     //Get the data from the node
+    sleep(1);
     void* dataBuffer = malloc(sizeof(varRef->size));
     read(*node, dataBuffer, varRef->size);
     printf("Datos recibidos\n");
     
     //And then send the data to the client
-    send(*client, dataBuffer, varRef->size, 0);
+    send(client, dataBuffer, varRef->size, 0);
 }
 
 //source code taken from: geeksforgeeks
