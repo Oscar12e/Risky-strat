@@ -86,8 +86,9 @@ void dsm_overwrite(int variable, void* data){
     dsm_var* var = vector_get(&variables, variable);
     send(server, var, sizeof(dsm_var), 0);
     //Send the data to overwrite the node
-    send(server, data, sizeof(var->size), 0);
-
+    void* dataBuffer = malloc(sizeof(var->size));
+    dataBuffer = data;
+    send(server, dataBuffer, sizeof(var->size), 0);
     return;
 }
 
