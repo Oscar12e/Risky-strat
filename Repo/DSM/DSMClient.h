@@ -1,7 +1,7 @@
 #ifndef DSMCLIENT_H
 #define DSMCLIENT_H
 #include <stdlib.h>
-#include <vector.h>
+#include "vector.h"
 #include "DSMCommon.h"
 
 //Which pages do i have?

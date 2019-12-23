@@ -1,6 +1,5 @@
 #ifndef DSMCOMMON_H
 #define DSMCOMMON_H
-#include "vector.h"
 
 #define PORT 4000
 #define ALLOC 1     //Alloc data

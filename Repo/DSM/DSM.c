@@ -42,24 +42,24 @@ int containsClient(int node){
     return 0;
 }
 
-void handleClient(int clientSock){
+void handleClient(int* clientSock){
     int *in = malloc(sizeof(int));
     int valread;
 
     do {
-        valread = read(clientSock, in, sizeof(int));
+        valread = read(*clientSock, in, sizeof(int));
         
         sem_wait(&sem_peticiones);
         switch (*in){
         case ALLOC:
-            allocData(&clientSock);
+            allocData(clientSock);
             break;
         case OVERWRITE:
-            storeData(&clientSock);
+            storeData(clientSock);
             /* code */
             break;
         case READ:
-            readStored(&clientSock);
+            readStored(clientSock);
             /* code */
             break;
         default:
@@ -101,7 +101,7 @@ void initializeClient(int clientSock){
     //We don't use enougth process to cover all pages, so there's not validation
 
     //Send a page for use
-    send(clientSock, freePage->pageNumber, sizeof( int ), 0);
+    send(clientSock, &freePage->pageNumber, sizeof( int ), 0);
     
     //Run the handler
     int *client = malloc(sizeof(int));
@@ -146,7 +146,7 @@ void allocData(int* client){
     send(*client, &result, sizeof(int), 0);
     if (result == OK){
         var_ref* reference = malloc(sizeof(var_ref));
-        read(*socket, reference, sizeof(var_ref));
+        read(*node, reference, sizeof(var_ref));
         send(*client, reference, sizeof(var_ref), 0);
         
         #if DEBUG
@@ -187,7 +187,7 @@ void storeData(int* client){
 }
 
 
-void* readStored(int* client){
+void readStored(int* client){
     //Get the actual variable info
     //Use that info to access the page
     var_ref* varRef = malloc(sizeof(var_ref));
