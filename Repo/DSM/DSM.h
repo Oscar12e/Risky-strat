@@ -14,7 +14,7 @@ void setupNodes();
 void* listen_requests();
 void allocData(int client);
 void readStored(int* client);
-void storeData(int* client);
+void storeData(int client);
 
 
 

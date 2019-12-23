@@ -68,7 +68,7 @@ void* handleClient(void* socket){
                 allocData(*clientSock);
                 break;
             case OVERWRITE:
-                storeData(clientSock);
+                storeData(*clientSock);
                 /* code */
                 break;
             case READ:
