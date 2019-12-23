@@ -13,7 +13,7 @@ void init();
 void setupNodes();
 void* listen_requests();
 void allocData(int* client);
-void storeData(int* client);
+void readStored(int* client);
 void readData(int* client);
 
 

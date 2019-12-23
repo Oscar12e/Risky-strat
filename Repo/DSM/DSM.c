@@ -42,7 +42,8 @@ int containsClient(int node){
     return 0;
 }
 
-void handleClient(int* clientSock){
+void handleClient(void* socket){
+    int clientSock = *socket;
     int *in = malloc(sizeof(int));
     int valread;
 
@@ -52,14 +53,14 @@ void handleClient(int* clientSock){
         sem_wait(&sem_peticiones);
         switch (*in){
         case ALLOC:
-            allocData(clientSock);
+            allocData(&clientSock);
             break;
         case OVERWRITE:
-            storeData(clientSock);
+            storeData(&clientSock);
             /* code */
             break;
         case READ:
-            readStored(clientSock);
+            readStored(&clientSock);
             /* code */
             break;
         default:
@@ -136,7 +137,7 @@ void allocData(int* client){
     int op = ALLOC;
     send(*node, &op, sizeof( int ), 0);
     
-    long out[2] = {*pageNum, size};
+    long out[2] = {*pageNum, (long) size};
     //Then we send the information to realiaze the operation
     send(*node, out, sizeof(long)*2, 0);
 

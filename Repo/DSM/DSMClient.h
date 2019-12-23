@@ -20,6 +20,7 @@ typedef struct dsm_var {
     size_t size;
 } dsm_var;
 
+int initConnection();
 int dsm_malloc(size_t size);
 void* dsm_read();
 void dsm_overwrite(int, void*);

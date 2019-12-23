@@ -16,13 +16,13 @@ vector variables; //All the variables we have in our client
 int dsm_malloc(size_t size){
     //First we send the operation
     int op = ALLOC;
-    send(server, op, sizeof(int), 0);
+    send(server, &op, sizeof(int), 0);
 
     //We start sharing what eh function waits for
     //We send the page
     send(server, &currentPage, sizeof(long), 0);
     //Then the size
-    send(server, size, sizeof(size_t), 0);
+    send(server, &size, sizeof(size_t), 0);
 
     //We wait to read the result
     int result;
@@ -50,7 +50,7 @@ int dsm_malloc(size_t size){
 void* dsm_read(int variable){
     //As always, the operation first
     int op = READ;
-    send(server, op, sizeof(int), 0);
+    send(server, &op, sizeof(int), 0);
     //Get the internal reference to the var and send it
     dsm_var* var = vector_get(&variables, variable);
     send(server, var, sizeof(dsm_var), 0);
@@ -64,7 +64,7 @@ void* dsm_read(int variable){
 void dsm_overwrite(int variable, void* data){
     //As always, the operation first
     int op = OVERWRITE;
-    send(server, op, sizeof(int), 0);
+    send(server, &op, sizeof(int), 0);
     //Get the internal reference to the var and send it
     dsm_var* var = vector_get(&variables, variable);
     send(server, var, sizeof(dsm_var), 0);
@@ -74,7 +74,7 @@ void dsm_overwrite(int variable, void* data){
     return;
 }
 
-void init(){
+int initConnection(){
     vector_init(&variables);
 
     int sock = 0, valread; 
