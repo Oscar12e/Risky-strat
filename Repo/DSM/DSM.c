@@ -199,15 +199,15 @@ void allocData(int client){
 
 }
 
-void storeData(int* client){
+void storeData(int client){
     //Get the actual variable info
     //Use that info to access the page
     var_ref* varRef = malloc(sizeof(var_ref));
-    read(*client, varRef, sizeof(var_ref));
+    read(client, varRef, sizeof(var_ref));
 
     //Get the data from the client
     void* dataBuffer = malloc(sizeof(varRef->size));
-    read(*client, dataBuffer, varRef->size);
+    read(client, dataBuffer, varRef->size);
 
     //Check the buffer to know if the size sent is right
     
