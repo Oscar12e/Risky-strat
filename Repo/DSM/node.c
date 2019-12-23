@@ -111,7 +111,7 @@ void allocInMemory(){
 
     if (newOccupied > pageSize){
         int op = ERROR;
-        send(server, &op, sizeof(int));
+        send(server, &op, sizeof(int), 0);
     } else {
         dataPage->occupied += size; //Note we can have a segmentation default here
 

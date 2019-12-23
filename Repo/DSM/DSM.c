@@ -110,7 +110,7 @@ void initializeClient(int clientSock){
 
     if( pthread_create( &client_thread , NULL ,  handleClient , (void *) client ) < 0) {
         printf("ERROR: No se pudo crear el hilo\n");
-        return 1;
+        return;
 	}
 }
 
@@ -143,7 +143,7 @@ void allocData(int* client){
     //And we read the result struct
     int result;
     read(*node, &result, sizeof(int));
-    send(*client, &result, sizeof(int));
+    send(*client, &result, sizeof(int), 0);
     if (result == OK){
         var_ref* reference = malloc(sizeof(var_ref));
         read(*socket, reference, sizeof(var_ref));
@@ -203,10 +203,10 @@ void* readStored(int* client){
     send(*node, varRef, sizeof( var_ref ), 0);
     //Get the data from the node
     void* dataBuffer = malloc(sizeof(varRef->size));
-    read(*node, dataBuffer, in->size);
+    read(*node, dataBuffer, varRef->size);
     
     //And then send the data to the client
-    send(*client, dataBuffer, in->size, 0);
+    send(*client, dataBuffer, varRef->size, 0);
 }
 
 //source code taken from: geeksforgeeks
