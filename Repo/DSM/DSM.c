@@ -183,7 +183,7 @@ void storeData(int* client){
     send(*node, varRef, sizeof( var_ref ), 0);
 
     //And then send the data to the node to overwrite the space in the node
-    send(*node, dataBuffer, in->size, 0);
+    send(*node, dataBuffer, varRef->size, 0);
 }
 
 
@@ -343,7 +343,6 @@ void setupNodes(){
 void menu(){
     //Menu oara funcionar mientras se tenga todo en accion
     //Opcion de salida, lo normal
-    DSM_malloc(4);
 
     int input;
     while(1){
