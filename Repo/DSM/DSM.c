@@ -43,31 +43,43 @@ int containsClient(int node){
 }
 
 void* handleClient(void* socket){
-    int* clientSock = (int *) socket;
+    int *clientSock = (int *) socket;
     int *in = malloc(sizeof(int));
     int valread;
 
+    #if DEBUG
+            printf("Inicializado el cliente %d\n", *clientSock);
+    #endif 
+
     do {
         valread = read(*clientSock, in, sizeof(int));
-        
-        sem_wait(&sem_peticiones);
+
+        #if DEBUG
+            printf("Instruccion recibida %d del cliente %d\n", *in, *clientSock);
+        #endif 
+        //sem_wait(&sem_peticiones);
+
+        #if DEBUG
+            printf("For pete's sake\n");
+        #endif 
+
         switch (*in){
-        case ALLOC:
-            allocData(clientSock);
-            break;
-        case OVERWRITE:
-            storeData(clientSock);
-            /* code */
-            break;
-        case READ:
-            readStored(clientSock);
-            /* code */
-            break;
-        default:
-            break;
+            case ALLOC:
+                allocData(*clientSock);
+                break;
+            case OVERWRITE:
+                storeData(clientSock);
+                /* code */
+                break;
+            case READ:
+                readStored(clientSock);
+                /* code */
+                break;
+            default:
+                break;
         }
 
-        sem_post(&sem_peticiones);
+        //sem_post(&sem_peticiones);
 
     } while (valread > 0);
  
@@ -102,7 +114,16 @@ void initializeClient(int clientSock){
     //We don't use enougth process to cover all pages, so there's not validation
 
     //Send a page for use
-    send(clientSock, &freePage->pageNumber, sizeof( int ), 0);
+    long * pageNum = malloc(sizeof(long)); 
+    *pageNum = freePage->pageNumber;
+
+    #if DEBUG
+        printf("Nuevo cliente\n");
+        printf("PAgina libre %ld asignada al cliente %d \n", *pageNum, clientSock);
+    #endif 
+
+
+    send(clientSock, pageNum, sizeof( long ), 0);
     
     //Run the handler
     int *client = malloc(sizeof(int));
@@ -113,17 +134,31 @@ void initializeClient(int clientSock){
         printf("ERROR: No se pudo crear el hilo\n");
         return;
 	}
+
+    #if DEBUG
+        printf("Cliente inicializado\n");
+    #endif 
 }
 
 /*
 */
-void allocData(int* client){
+void allocData(int client){
     //First, tell me the page
+    #if DEBUG
+        printf("Allocando para %d \n", client);
+    #endif 
     long* pageNum = malloc(sizeof(long));
-    read(*client, pageNum, sizeof(long));
+
+    read(client, pageNum, sizeof(long));
+    #if DEBUG
+        printf("PageNUm %ld \n", *pageNum);
+    #endif 
 
     size_t* size = malloc(sizeof(size_t));
-    read(*client, size, sizeof(size_t));
+     #if DEBUG
+        printf("Size %ld \n", *size);
+    #endif 
+    read(client, size, sizeof(size_t));
 
     int frame = *pageNum / pagesPerNode;
     int* node = vector_get(&dsmNodes, frame);
@@ -136,6 +171,9 @@ void allocData(int* client){
     //We send the operation we want to perfom
     int op = ALLOC;
     send(*node, &op, sizeof( int ), 0);
+
+    //send(*node, pageNum, sizeof(long), 0);
+    //send(*node, &size, sizeof(size_t), 0);
     
     long out[2] = {*pageNum, (long) size};
     //Then we send the information to realiaze the operation
@@ -144,11 +182,11 @@ void allocData(int* client){
     //And we read the result struct
     int result;
     read(*node, &result, sizeof(int));
-    send(*client, &result, sizeof(int), 0);
+    send(client, &result, sizeof(int), 0);
     if (result == OK){
         var_ref* reference = malloc(sizeof(var_ref));
         read(*node, reference, sizeof(var_ref));
-        send(*client, reference, sizeof(var_ref), 0);
+        send(client, reference, sizeof(var_ref), 0);
         
         #if DEBUG
             printf("Allocado sin problemas \n", size);
@@ -260,8 +298,8 @@ void* listen_requests(){
                 "No se aceptarán más nodos.");
             }
         } else if (option == REGISTER_CLIENT) {
+            printf("Client connected\n");
             initializeClient(new_socket);
-            //addClient(new_socket);
         }
     }
     
@@ -306,7 +344,6 @@ void setupNodes(){
     //Last one for print porpouses
 
     #if DEBUG
-        printf("Enviado a %d\n", *socket);
         printf("Total of nodes %d\n", vector_total(&dsmNodes));
     #endif
     
@@ -378,7 +415,6 @@ int main(){
 
     
     printf("DSM version simple 0.1 \n");
-    printf("Tamaños %d - %d - %d \n", sizeof(unsigned char), sizeof(void*), sizeof(int));
     printf("Inicie los nodos en este momento.\n");
     printf("Al terminar de ingresar los nodos ");
     printf("ingrese 'y' para iniciar o 'a' para usar los datos default.\n");

@@ -16,17 +16,32 @@ vector variables; //All the variables we have in our client
 int dsm_malloc(size_t size){
     //First we send the operation
     int op = ALLOC;
-    send(server, &op, sizeof(int), 0);
+    #if DEBUG
+        printf("Enviado solicitud para malloc de %ld \n", size);
+    #endif 
+    send(server, &op, sizeof(int), 0);    
 
     //We start sharing what eh function waits for
     //We send the page
     send(server, &currentPage, sizeof(long), 0);
+    #if DEBUG
+        printf("Pagina enviada\n");
+    #endif 
     //Then the size
     send(server, &size, sizeof(size_t), 0);
+    #if DEBUG
+        printf("Tamaño a reservar enviado\n");
+    #endif 
 
     //We wait to read the result
     int result;
+    #if DEBUG
+        printf("Leyendo resultado\n");
+    #endif 
     read(server, &result, sizeof(int));
+    #if DEBUG
+        printf("Resultado leido\n");
+    #endif 
 
     if (result == OK){
         //If there was no error, then we wait for the reference
@@ -102,24 +117,25 @@ int initConnection(){
     
     
     int operation = REGISTER_CLIENT;
+    printf("Registrando\n");
     send(sock , &operation , sizeof(int) , 0 ); 
     server = sock;
 
-
-    int *buffer = malloc(sizeof(int));
-    read(sock, buffer, sizeof(int));
-    if (*buffer == ERROR){
+    printf("Obteniendo pagina libre\n");
+    long *buffer = malloc(sizeof(long));
+    read(sock, buffer, sizeof(long));
+    
+    /*if (*buffer == ERROR){
         //In case no pages are free
         printf("No free page\n");
         return 0;
-    } else { //In other case, it 
+    } else { //In other case, it */
+        printf("Free page it seems %ld\n", *buffer);
         currentPage = *buffer;
-    }
+
+
+//    }
 
     //Connection is open by now on
     return 1; 
-}
-
-int main(){
-    return 0;
 }
