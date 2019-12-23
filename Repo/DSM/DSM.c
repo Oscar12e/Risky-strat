@@ -44,7 +44,6 @@ int containsClient(int node){
 
 void handleClient(int clientSock){
     int *in = malloc(sizeof(int));
-
     int valread;
 
     do {
@@ -53,13 +52,14 @@ void handleClient(int clientSock){
         sem_wait(&sem_peticiones);
         switch (*in){
         case ALLOC:
-            /* code */
-            
+            allocData(&clientSock);
             break;
         case OVERWRITE:
+            storeData(&clientSock);
             /* code */
             break;
         case READ:
+            readStored(&clientSock);
             /* code */
             break;
         default:
@@ -70,29 +70,7 @@ void handleClient(int clientSock){
 
     } while (valread > 0);
  
-
-}
-
-/* handleRequest
- * @param request: a packet with the data of the request
-*/
-void handleRequest(int operation){
-    sem_wait(&sem_peticiones);
-    
-    switch (operation){
-        case ALLOC:
-            //I need the client page, check if it has space
-            //If client has not page, then alloc him one
-            break;
-        case READ:
-            break;
-        case OVERWRITE:
-            break;
-        default:
-            break;
-    }    
-
-    sem_post(&sem_peticiones);
+    //El cliente se ha descontectado
 }
 
 
@@ -104,19 +82,6 @@ int addNode(int sender){
     *socket = sender;
     vector_add(&dsmNodes, socket);
     printf("\nNuevo nodo añadido: %d - %d\n", sender, *socket);     
-}
-
-
-//Clients code
-int addClient(int sender){
-    if (containsClient(sender) == 0) return 0;
-
-    int* socket = malloc(sizeof(int));
-    *socket = sender;
-    vector_add(&dsmNodes, socket);
-    #if DEBUG
-        printf("\nNuevo nodo añadido: %d - %d\n", sender, *socket); 
-    #endif    
 }
 
 page_ref* getFreePage(){
@@ -142,14 +107,16 @@ void initializeClient(int clientSock){
     int *client = malloc(sizeof(int));
     *client = clientSock;
     pthread_t client_thread;
+
     if( pthread_create( &client_thread , NULL ,  handleClient , (void *) client ) < 0) {
         printf("ERROR: No se pudo crear el hilo\n");
         return 1;
 	}
-    handleClient();
 }
 
-void dsm_malloc(int* client){
+/*
+*/
+void allocData(int* client){
     //First, tell me the page
     long* pageNum = malloc(sizeof(long));
     read(*client, pageNum, sizeof(long));
@@ -158,126 +125,88 @@ void dsm_malloc(int* client){
     read(*client, size, sizeof(size_t));
 
     int frame = *pageNum / pagesPerNode;
-    int* socket = vector_get(&dsmNodes, frame);
-    int out = ALLOC;
-
+    int* node = vector_get(&dsmNodes, frame);
+    
     #if DEBUG
         printf("Solicitada la opción de Malloc para un tamaño de \n", size);
         printf("\nSe guarda en el frame %d\n", frame);
     #endif 
 
     //We send the operation we want to perfom
-    send(*socket, &out, sizeof( int ), 0);
+    int op = ALLOC;
+    send(*node, &op, sizeof( int ), 0);
+    
     long out[2] = {*pageNum, size};
     //Then we send the information to realiaze the operation
-    send(*socket, out, sizeof(long)*2, 0);
+    send(*node, out, sizeof(long)*2, 0);
 
     //And we read the result struct
-    var_ref* in = malloc(sizeof(var_ref));
-    read(*socket, in, sizeof(var_ref));
-    send(*client, in, sizeof(var_ref), 0);
-    
-    /*
-  
+    int result;
+    read(*node, &result, sizeof(int));
+    send(*client, &result, sizeof(int));
+    if (result == OK){
+        var_ref* reference = malloc(sizeof(var_ref));
+        read(*socket, reference, sizeof(var_ref));
+        send(*client, reference, sizeof(var_ref), 0);
+        
+        #if DEBUG
+            printf("Allocado sin problemas \n", size);
+        #endif 
+    } else {
+        #if DEBUG
+            printf("Allocado sin problemas \n", size);
+        #endif 
+    }
 
-    //Debugin
-    out = DISPLAY;
-    send(*socket, &out, sizeof( int ), 0);
-
-    out = OVERWRITE;
-    send(*socket, &out, sizeof( int ), 0);
-
-
-    send(*socket, in, sizeof( var_ref ), 0);
-
-    int* test = malloc(sizeof(int));
-    *test = 52;
-
-    
-    printf("Sobreescribiendo1.\n");
-    send(*socket, test, sizeof( int ), 0);
-    printf("Sobreescribiendo2.\n");
-
-    //sleep(1);
-
-    out = DISPLAY;
-    printf("print1\n");
-    send(*socket, &out, sizeof( int ), 0);
-    printf("print2\n");
-
-
-    //send(*socket, ALLOC, 0);
-    //send(*socket, index, 0)
-    //send(*socket, size, 0);
-    //read(*socket, allocBuffer, 1024);
-    //start, size
-    */
 }
 
-void storeData(int variable, int* client){
+void storeData(int* client){
     //Get the actual variable info
     //Use that info to access the page
-
-    long* pageNum = malloc(sizeof(long));
-    //First, tell me the page
-    read(*client, pageNum, sizeof(long));
-
-    int frame = *pageNum / pagesPerNode;
-    int* node = vector_get(&dsmNodes, frame);
-    int out = OVERWRITE;
-
-    //Send the operation to the node
-    send(*node, &out, sizeof( int ), 0);
-
-    //Get the reference from the client
-    dsm_var* in = malloc(sizeof(dsm_var));
-    read(*client, &in, sizeof(var_ref));
-
-    //We transfere the data to the node
-    send(*node, in, sizeof( var_ref ), 0);
+    var_ref* varRef = malloc(sizeof(var_ref));
+    read(*client, varRef, sizeof(var_ref));
 
     //Get the data from the client
-    void* dataBuffer = malloc(sizeof(in->size));
-    read(*client, dataBuffer, in->size);
-    
-    //And then send the data to the node to overwrite the space in the node
-    send(*socket, dataBuffer, in->size, 0);
+    void* dataBuffer = malloc(sizeof(varRef->size));
+    read(*client, dataBuffer, varRef->size);
 
-    //read if ok or error
+    //Check the buffer to know if the size sent is right
+    
+    int frame = varRef->pageNum / pagesPerNode;
+    int* node = vector_get(&dsmNodes, frame);
+
+    //Send the operation to the node
+    int op = OVERWRITE;
+    send(*node, &op, sizeof( int ), 0);
+
+    //We transfere the data to the node
+    send(*node, varRef, sizeof( var_ref ), 0);
+
+    //And then send the data to the node to overwrite the space in the node
+    send(*node, dataBuffer, in->size, 0);
 }
 
 
 void* readStored(int* client){
-    //Get variable data
-    //Use the data to access the node
-    //And access the 
+    //Get the actual variable info
+    //Use that info to access the page
+    var_ref* varRef = malloc(sizeof(var_ref));
+    read(*client, varRef, sizeof(var_ref));
 
-    long* pageNum = malloc(sizeof(long));
-    //First, tell me the page
-    read(*client, pageNum, sizeof(long));
-
-    int frame = *pageNum / pagesPerNode;
+    int frame = varRef->pageNum / pagesPerNode;
     int* node = vector_get(&dsmNodes, frame);
-    int op = READ;
 
     //Send the operation to the node
+    int op = READ;
     send(*node, &op, sizeof( int ), 0);
-
-    //Get the reference from the client
-    dsm_var* in = malloc(sizeof(dsm_var));
-    read(*client, &in, sizeof(var_ref));
-
     //We transfere the reference to the node
-    send(*node, in, sizeof( var_ref ), 0);
-
+    send(*node, varRef, sizeof( var_ref ), 0);
     //Get the data from the node
-    void* dataBuffer = malloc(sizeof(in->size));
+    void* dataBuffer = malloc(sizeof(varRef->size));
     read(*node, dataBuffer, in->size);
     
     //And then send the data to the client
     send(*client, dataBuffer, in->size, 0);
-
-    //read if ok or error
 }
 
 //source code taken from: geeksforgeeks

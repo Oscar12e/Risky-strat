@@ -1,9 +1,5 @@
 #include <stdio.h> 
 #include <stdlib.h>
-#include <sys/socket.h> 
-#include <arpa/inet.h> 
-#include <unistd.h> 
-#include <string.h> 
 #include "DSMClient.h"
 
 long fibo(long n){
@@ -12,7 +8,9 @@ long fibo(long n){
 }
 
 int main(){
-    init();
+    if (init() == 0){
+        printf("Darn int\n");
+    }
     fibo(50);
 }
 

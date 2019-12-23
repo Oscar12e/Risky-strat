@@ -12,7 +12,7 @@
 vector pagesBlock;
 
 //Global variables
-int pageSize;
+long pageSize;
 long indexStart, indexEnd;
 int server;
 
@@ -91,10 +91,7 @@ void setupPages(){
 }
 
 void allocInMemory(){
-    //Para alocar necesito
-    //el numero de pagina
-    //tamaño del alloc
-
+    //First we read the information of pageNum and size
     long buffer[2] = {0};
     int valread = read(server, buffer, sizeof(long) * 2);
     long pageNum = buffer[0];
@@ -105,17 +102,28 @@ void allocInMemory(){
         printf("Storing %ld bytes on the page%d\n", size, pageNum);
     #endif
 
+    //We get the page at that position and the offset of the free space
     page* dataPage = vector_get(&pagesBlock, indexStart - pageNum);
     long offset = dataPage->occupied; //Can calculate
-    dataPage->occupied += size;
+    
+    //Update the opccupied 
+    long newOccupied = dataPage->occupied + size;
 
-    var_ref* var = newDsmVar(pageNum, size, offset);
+    if (newOccupied > pageSize){
+        int op = ERROR;
+        send(server, &op, sizeof(int));
+    } else {
+        dataPage->occupied += size; //Note we can have a segmentation default here
+
+        //Create a new reference with the data
+        var_ref* var = newDsmVar(pageNum, size, offset);
+        send(server, var, sizeof(var_ref), 0); //Devuelve el alloc
+        
+        #if DEBUG
+            printf("Operation finised.\n", size, pageNum);
+        #endif
+    }
     
-    send(server, var, sizeof(var_ref), 0); //Devuelve el alloc
-    
-    #if DEBUG
-        printf("Operation finised.\n", size, pageNum);
-    #endif
 }
 
 void writeInMemory(){
@@ -144,9 +152,7 @@ void readMemory(){
     int valread = read(server, var, sizeof(var_ref));
 
     page* dataPage = vector_get(&pagesBlock, indexStart - var->pageNum);
-
     long index = var->offset;
-   
     unsigned char* data = malloc(sizeof(var->size));
 
     //Set the values

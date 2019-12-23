@@ -10,51 +10,73 @@
 
 //Global variables
 int server;
-int currentPage; //The page we are storing the data currently
+long currentPage; //The page we are storing the data currently
 vector variables; //All the variables we have in our client
 
 int dsm_malloc(size_t size){
-    int operation = ALLOC;
-    
-    send(server, operation, sizeof(int), 0);
+    //First we send the operation
+    int op = ALLOC;
+    send(server, op, sizeof(int), 0);
+
+    //We start sharing what eh function waits for
+    //We send the page
+    send(server, &currentPage, sizeof(long), 0);
+    //Then the size
     send(server, size, sizeof(size_t), 0);
 
-    dsm_var *var = malloc(sizeof(dsm_var));
-    read(server, var, sizeof(dsm_var));
-    vector_add(&variables, var);
+    //We wait to read the result
+    int result;
+    read(server, &result, sizeof(int));
+
+    if (result == OK){
+        //If there was no error, then we wait for the reference
+        dsm_var *var = malloc(sizeof(dsm_var));
+        read(server, var, sizeof(dsm_var));
+        vector_add(&variables, var);
+        
+        return vector_total(&variables) - 1;
+    }
+
+    //There was and error
+    /*
+    The error can be request here and choose to asign other page if that's the case
+    */
+
+    return -1;
     
-    return vector_total(&variables) - 1;
+    
 }
 
 void* dsm_read(int variable){
-    int operation = READ;
-    send(server, operation, sizeof(int), 0);
-
+    //As always, the operation first
+    int op = READ;
+    send(server, op, sizeof(int), 0);
+    //Get the internal reference to the var and send it
     dsm_var* var = vector_get(&variables, variable);
-
     send(server, var, sizeof(dsm_var), 0);
-
-    void* data = malloc(var->size);
-    read(server, data, var->size);
+    //Send the data to overwrite the node
+    void* data = malloc(sizeof(var->size));
+    read(server, data, sizeof(var->size));
 
     return data;
 }
 
 void dsm_overwrite(int variable, void* data){
-    int operation = OVERWRITE;
-    send(server, operation, sizeof(int), 0);
-    
+    //As always, the operation first
+    int op = OVERWRITE;
+    send(server, op, sizeof(int), 0);
+    //Get the internal reference to the var and send it
     dsm_var* var = vector_get(&variables, variable);
     send(server, var, sizeof(dsm_var), 0);
-    send(server, data, var->size, 0);
+    //Send the data to overwrite the node
+    send(server, data, sizeof(var->size), 0);
 
-    return data;
+    return;
 }
 
 void init(){
     vector_init(&variables);
 
-    //Pasar a otra función
     int sock = 0, valread; 
     struct sockaddr_in serv_addr; 
 
