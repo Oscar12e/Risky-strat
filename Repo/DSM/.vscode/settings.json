@@ -1,5 +1,10 @@
 {
     "files.associations": {
-        "dsmclient.h": "c"
+        "dsmclient.h": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "neuronal.h": "c"
     }
 }

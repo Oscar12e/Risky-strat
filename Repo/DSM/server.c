@@ -81,7 +81,7 @@ HTTP/1.1 Puede reutilizar la conexion mas de una vez para requests nuevos
 Tan solo recibe el sring y lo guarda
 */
 void addToLog(char* entry){
-	char* filename = "Log.txt"; //Wish I could make it a const
+	char* filename = "Log.txt"; //Wish I could make it a const -> Icould
 	FILE* file = fopen(filename, "a");
 	fprintf(file, "%s", entry);
 	fclose(file);

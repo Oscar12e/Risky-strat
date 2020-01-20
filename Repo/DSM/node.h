@@ -30,5 +30,6 @@ void setupPages();
 void allocInMemory();
 void readMemory();
 void writeInMemory();
+void saveSnapshot();
 #endif
 

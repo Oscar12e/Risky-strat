@@ -12,7 +12,7 @@
 vector pagesBlock;
 
 //Global variables
-long pageSize;
+long pageSize, amountOfPages;
 long indexStart, indexEnd;
 int server;
 
@@ -39,7 +39,6 @@ var_ref* newDsmVar(long num, size_t size, size_t offset){
 
 
 void handleRequest(int operation){
-    printf("\nHandling a request\n");
     int valread;
     
     switch (operation){
@@ -74,15 +73,19 @@ void handleRequest(int operation){
 }
 
 void setupPages(){
-    printf("\nSetting the pages\n");  
     long buffer[3] = {0}; // {pageSize, pagesPerNode, 0}; 
     int valread = read(server, buffer, sizeof(long) * 3); 
 
     pageSize = buffer[0];
     long pagesToAlloc = buffer[1];
+    amountOfPages = pagesToAlloc;
     indexStart = buffer[2];
-
     indexEnd = indexStart + pagesToAlloc;
+
+    #if DEBUG
+        printf("\n[Setup]: ");
+        printf("Allocando %ld paginas de tamaño %ld en el nodo.\n", pagesToAlloc , pageSize);
+    #endif
 
     for (long pageIndex = indexStart; pageIndex < indexEnd; pageIndex++){
         page* p = newPage(pageIndex, pageSize);
@@ -98,12 +101,12 @@ void allocInMemory(){
     size_t size = buffer[1]; //I need this
     
     #if DEBUG
-        printf("\nAlloc\n");
-        printf("Storing %ld bytes on the page%d\n", size, pageNum);
+        printf("\n[Alloc]: ");
+        printf("Allocando %ld bytes en la pagina: %d.\n", size, pageNum);
     #endif
 
     //We get the page at that position and the offset of the free space
-    page* dataPage = vector_get(&pagesBlock, indexStart - pageNum);
+    page* dataPage = vector_get(&pagesBlock, pageNum % amountOfPages );
     long offset = dataPage->occupied; //Can calculate
     
     //Update the opccupied 
@@ -111,7 +114,7 @@ void allocInMemory(){
 
     if (newOccupied > pageSize){
         #if DEBUG
-            printf("Pagina sin espacio %ld - %ld.\n", newOccupied, pageSize);
+            printf("[Alloc - error]: Pagina sin espacio %ld - %ld.\n", newOccupied, pageSize);
         #endif
         int op = ERROR;
         send(server, &op, sizeof(int), 0);
@@ -132,43 +135,92 @@ void allocInMemory(){
 }
 
 void writeInMemory(){
-    var_ref* var = malloc(sizeof(var_ref));
-    int valread = read(server, var, sizeof(var_ref));
+    //Read the reference of the variable
+    var_ref* varRef = malloc(sizeof(var_ref));
+    int valread = read(server, varRef, sizeof(var_ref));
+    
+    #if DEBUG
+        printf("\n[Write]: ");
+        printf("Escribiendo %ld bytes. (Pagina %ld - offset %ld).\n",
+            varRef->size, varRef->pageNum, varRef->offset);
+    #endif
 
-    //Using the information for the variable, we write on the offset
-    //corresponding to the variable
-    page* dataPage = vector_get(&pagesBlock, indexStart - var->pageNum);
-
+    //With it, the have all we need to access the the data 
+    page* dataPage = vector_get(&pagesBlock, varRef->pageNum % amountOfPages );
     //Our index to the memory will simply be like this
-    long index = var->offset;
+    long index = varRef->offset;
     //We use a dataBuffer to get the var info
-    unsigned char* data = malloc(sizeof(unsigned char) * var->size);
+    //unsigned char* data = malloc(sizeof(unsigned char) * varRef->size);
     //We will need to receive the data to store it
-    valread = read(server, data, var->size);
+    long readBytes = 0;
+    unsigned char* data = malloc(sizeof(varRef->size));
+
+    while (readBytes < varRef->size){
+        readBytes += read(server, data + readBytes, varRef->size - readBytes);
+    }
+    //valread = read(server, data, var->size);
+
+    int * readed = (int *) data;
+    
     //Set the value byte per byte into the page
-    for (int move = 0; move < var->size; move++){
+    for (int move = 0; move < varRef->size; move++){
         dataPage->data [index + move] = data[move];
     }
 
 }
 
 void readMemory(){
-    printf("Reading\n");
-    var_ref* var = malloc(sizeof(var_ref));
-    int valread = read(server, var, sizeof(var_ref));
+    var_ref* varRef = malloc(sizeof(var_ref));
+    int valread = read(server, varRef, sizeof(var_ref));
 
-    page* dataPage = vector_get(&pagesBlock, indexStart - var->pageNum);
-    long index = var->offset;
-    unsigned char* data = malloc(sizeof(var->size));
+    #if DEBUG
+        printf("\n[Read]: ");
+        printf("Leyendo %ld bytes. (Pagina %ld - offset %ld).\n",
+            varRef->size, varRef->pageNum,  varRef->offset);
+    #endif
+
+    page* dataPage = vector_get(&pagesBlock, varRef->pageNum % amountOfPages );
+    long index = varRef->offset;
+    unsigned char* data = malloc(sizeof(varRef->size));
 
     //Set the values
-    for (int move = 0; move < var->size; move++){
-        data[move] = dataPage->data[move];
+    for (int move = 0; move < varRef->size; move++){
+        data[move] = dataPage->data[index + move];
     }
 
     //To finish we send back the data we read
-    printf("Reading done");
-    send(server, data, var->size, 0);
+    //send(server, data, var->size, 0);
+    long sentBytes = 0; //Record of how many bytes we sent
+    while(sentBytes < varRef->size){ //Keep sending till 
+        sentBytes += send(server, data + sentBytes, varRef->size - sentBytes, 0);
+    }
+}
+
+
+/*Just to add rows to the log
+Tan solo recibe el sring y lo guarda
+*/
+void addToLog(char* entry){
+	char* filename = "Log.txt"; //Wish I could make it a const -> Icould
+	FILE* file = fopen(filename, "a");
+	fprintf(file, "%s", entry);
+	fclose(file);
+
+	printf("\nSaving on log\n");
+}
+
+void saveSnapshot(){
+    int size = vector_total(&pagesBlock);
+    for (int i = 0; i < 1; i++){
+        page* currentPage = vector_get(&pagesBlock, i);
+        printf("\nPage %ld\n", currentPage->pageNum);
+        char filename[100] = 
+
+        for (long i = 0; i < size; i++){
+            printf("%c", currentPage->data[i]);
+        }
+    }
+
 }
 
 int main(int argc, char const *argv[]) { 
@@ -205,7 +257,7 @@ int main(int argc, char const *argv[]) {
     while (1){
         int operation;
         #if DEBUG
-            printf("Esperando intrucciones\n" ); 
+            printf("\n[Handler]: Esperando intrucciones\n" ); 
         #endif 
         valread = read( sock , &operation, sizeof(int)); 
 
@@ -216,13 +268,13 @@ int main(int argc, char const *argv[]) {
         }
 
         #if DEBUG
-            printf("\nInstrucción recibida: %d\n", operation);
+            printf("[Handler]: Instrucción recibida: %d\n", operation);
         #endif 
         
         handleRequest(operation);
 
         #if DEBUG
-             printf("Operacion terminada\n");
+             printf("[Handler]: Operacion terminada\n\n");
         #endif        
     }
 

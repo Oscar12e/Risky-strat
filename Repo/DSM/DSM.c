@@ -51,17 +51,13 @@ void* handleClient(void* socket){
             printf("Inicializado el cliente %d\n", *clientSock);
     #endif 
 
-    do {
-        valread = read(*clientSock, in, sizeof(int));
-
+    while(valread = read(*clientSock, in, sizeof(int)) > 0){
+        
         #if DEBUG
-            printf("Instruccion recibida %d del cliente %d\n", *in, *clientSock);
+            printf("\n\n---------------------------------------");
+            printf("\nInstruccion recibida %d del cliente %d\n", *in, *clientSock);
         #endif 
         sem_wait(&sem_peticiones);
-
-        #if DEBUG
-            printf("For pete's sake\n");
-        #endif 
 
         switch (*in){
             case ALLOC:
@@ -78,10 +74,17 @@ void* handleClient(void* socket){
             default:
                 break;
         }
-
         sem_post(&sem_peticiones);
+        #if DEBUG
+            printf("\nInstruccion %d finalizada\n", *in);
+            printf("---------------------------------------\n");
+            
+        #endif 
+    }
 
-    } while (valread > 0);
+    #if DEBUG
+        printf("El cliente se ha desconectado %d\n", *clientSock);
+    #endif 
  
     //El cliente se ha descontectado
 }
@@ -94,7 +97,8 @@ int addNode(int sender){
     int* socket = malloc(sizeof(int));
     *socket = sender;
     vector_add(&dsmNodes, socket);
-    printf("\nNuevo nodo añadido: %d - %d\n", sender, *socket);     
+
+    //printf("\nNuevo nodo añadido: %d - %d\n", sender, *socket);     
 }
 
 page_ref* getFreePage(){
@@ -118,10 +122,9 @@ void initializeClient(int clientSock){
     *pageNum = freePage->pageNumber;
 
     #if DEBUG
-        printf("Nuevo cliente\n");
-        printf("PAgina libre %ld asignada al cliente %d \n", *pageNum, clientSock);
+        printf(KGRN "[SERVER]" KNRM "Nuevo cliente agregado.\n");
+        printf("Se asigna la pagina %ld al cliente %d\n\n", *pageNum, clientSock);
     #endif 
-
 
     send(clientSock, pageNum, sizeof( long ), 0);
     
@@ -134,10 +137,6 @@ void initializeClient(int clientSock){
         printf("ERROR: No se pudo crear el hilo\n");
         return;
 	}
-
-    #if DEBUG
-        printf("Cliente inicializado\n");
-    #endif 
 }
 
 /*
@@ -152,11 +151,11 @@ void allocData(int client){
 
     int frame = *pageNum / pagesPerNode;
     int* node = vector_get(&dsmNodes, frame);
-    
+
     #if DEBUG
-        printf("Solicitada la opción de Malloc para un tamaño de %ld \n", *size);
-        printf("\nSe guarda en el frame %d\n", frame);
-    #endif 
+        printf("\n" KGRN"[ALLOC]" KNRM ":");
+        printf("Alloc para %ld bytes.\n",  *size);
+    #endif
 
     //We send the operation we want to perfom
     int op = ALLOC;
@@ -179,11 +178,13 @@ void allocData(int client){
         send(client, reference, sizeof(var_ref), 0);
         
         #if DEBUG
-            printf("Allocado sin problemas \n\n", size);
+            printf("\n" KGRN"[ALLOC]" KNRM ":");
+            printf("Finalizado sin problemas.\n", size);
         #endif 
     } else {
         #if DEBUG
-            printf("Allocado con problemas \n", size);
+            printf("\n" KRED"[ALLOC]" KNRM ":");
+            printf("Se produjo un error.\n", size);
         #endif 
     }
 
@@ -192,14 +193,20 @@ void allocData(int client){
 void storeData(int client){
     //Get the actual variable info
     //Use that info to access the page
-    printf("Storing from server\n");
     var_ref* varRef = malloc(sizeof(var_ref));
     read(client, varRef, sizeof(var_ref));
-    printf("Reading %ld bytes stored\n", varRef->size);
+
+    #if DEBUG
+        printf("\n" KGRN"[WRITE]" KNRM ":");
+        printf("Escribiendo %ld bytes.\n", varRef->size);
+    #endif
 
     //Get the data from the client
-    void* dataBuffer = malloc(sizeof(varRef->size));
-    read(client, dataBuffer, varRef->size);
+    long readBytes = 0;
+    unsigned char* data = malloc(sizeof(varRef->size));
+    while (readBytes < varRef->size){
+        readBytes += read(client, data + readBytes, varRef->size - readBytes);
+    }
 
     //Check the buffer to know if the size sent is right
     
@@ -214,38 +221,50 @@ void storeData(int client){
     send(*node, varRef, sizeof( var_ref ), 0);
 
     //And then send the data to the node to overwrite the space in the node
-    send(*node, dataBuffer, varRef->size, 0);
-    printf("Data stored done\n");
+    //send(*node, dataBuffer, varRef->size, 0);
+
+    long sentBytes = 0; //Record of how many bytes we sent
+    while(sentBytes < varRef->size){ //Keep sending till 
+        sentBytes += send(*node, data + sentBytes, varRef->size - sentBytes, 0);
+    }
 }
 
 
 void readStored(int client){
     //Get the actual variable info
     //Use that info to access the page
-    printf("Inicio de la lectura\n");
     var_ref* varRef = malloc(sizeof(var_ref));
     read(client, varRef, sizeof(var_ref));
 
-    printf("TAmañp de la wea %ld", varRef->size);
+    #if DEBUG
+        printf("\n" KGRN"[READ]" KNRM ":");
+        printf("Leyendo %ld bytes.\n", varRef->size);
+    #endif
 
     int frame = varRef->pageNum / pagesPerNode;
     int* node = vector_get(&dsmNodes, frame);
 
     //Send the operation to the node
-    printf("Instruccion al nodo\n");
     int op = READ;
     send(*node, &op, sizeof( int ), 0);
     //We transfere the reference to the node
-    printf("Instruccion al nodo enviada\n");
     send(*node, varRef, sizeof( var_ref ), 0);
     //Get the data from the node
     sleep(1);
-    void* dataBuffer = malloc(sizeof(varRef->size));
-    read(*node, dataBuffer, varRef->size);
-    printf("Datos recibidos\n");
+
+    //Get the data from the client
+    long readBytes = 0;
+    unsigned char* data = malloc(sizeof(varRef->size));
+    while (readBytes < varRef->size){
+        readBytes += read(*node, data + readBytes, varRef->size - readBytes);
+    }
     
     //And then send the data to the client
-    send(client, dataBuffer, varRef->size, 0);
+    //send(client, dataBuffer, varRef->size, 0);
+    long sentBytes = 0; //Record of how many bytes we sent
+    while(sentBytes < varRef->size){ //Keep sending till 
+        sentBytes += send(client, data + sentBytes, varRef->size - sentBytes, 0);
+    }
 }
 
 //source code taken from: geeksforgeeks

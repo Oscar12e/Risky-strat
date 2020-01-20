@@ -16,33 +16,41 @@ long currentPage; //The page we are storing the data currently
 vector variables; //All the variables we have in our client
 
 int dsm_malloc(size_t size){
+    #if DEBUG
+        printf(KGRN "[ALLOC]" KNRM ": Inicio.\n");
+        printf("Solicitando un espacio de %ld en la pagina %ld\n", size, currentPage );
+    #endif 
     sem_wait(&peticiones);
+    //Everything is send in the order the server expects it
     //First we send the operation
     int op = ALLOC;
     send(server, &op, sizeof(int), 0);    
-
-    //We start sharing what eh function waits for
-    //We send the page
+    //The page we are using
     send(server, &currentPage, sizeof(long), 0);
-
-    //Then the size
+    //Then the size we need to alloc
     send(server, &size, sizeof(size_t), 0);
-
-    //We wait to read the result
+    //Then we wait to read the result
     int result;
     read(server, &result, sizeof(int));
-
-    if (result == OK){
+    if (result == OK){ //The scope of the project doesn't cover
         //If there was no error, then we wait for the reference
-        var_ref *var = malloc(sizeof(var_ref));
-        read(server, var, sizeof(var_ref));
-        vector_add(&variables, var);
-
+        var_ref *varRef = malloc(sizeof(var_ref));
+        read(server, varRef, sizeof(var_ref));
+        vector_add(&variables, varRef);
+        int index  = vector_total(&variables) - 1;
         sem_post(&peticiones);
-        return vector_total(&variables) - 1;
-    } else {
         #if DEBUG
-            printf("Error on malloc\n");
+            printf( KGRN "[ALLOC]" KNRM ": Creado con exito.\n");
+            printf(KWHT "\t-> " KNRM "index: %d\n", index);
+            printf(KWHT "\t-> " KNRM "size: %ld\n", varRef->size);
+            printf(KWHT "\t-> " KNRM "page: %ld\n", varRef->pageNum);
+            printf(KWHT "\t-> " KNRM "offset: %ld\n", varRef->offset);
+        #endif 
+
+        return index;
+    } else { //Here ww can have a switch to manage the errors 
+        #if DEBUG
+            printf("[ALLOC]: Error %d \n", result);
         #endif 
     }
 
@@ -58,39 +66,52 @@ int dsm_malloc(size_t size){
 
 void* dsm_read(int variable){
     sem_wait(&peticiones);
+    var_ref* varRef = vector_get(&variables, variable);
+    #if DEBUG
+        printf(KGRN "[READ]" KNRM ": Inicio.\n");
+        printf("Leyendo del server, datos de la referencia:\n");
+        printf(KWHT "\t-> " KNRM "size: %ld\n", varRef->size);
+        printf(KWHT "\t-> " KNRM "page: %ld\n", varRef->pageNum);
+        printf(KWHT "\t-> " KNRM "offset: %ld\n", varRef->offset);
+    #endif 
     //As always, the operation first
     int op = READ;
     send(server, &op, sizeof(int), 0);
     //Get the internal reference to the var and send it
-    var_ref* var = vector_get(&variables, variable);
-    #if DEBUG
-        printf("leyendo var de %ld\n", var->size);
-    #endif 
-    send(server, var, sizeof(var_ref), 0);
+    send(server, varRef, sizeof(var_ref), 0);
+    
     //Send the data to overwrite the node
-
-    #if DEBUG
-        printf("Kidding me%ld\n", var->size);
-    #endif 
-    void* data = malloc(sizeof(var->size));
-    read(server, data, sizeof(var->size));
-
+    long readBytes = 0;
+    unsigned char* data = malloc(sizeof(varRef->size));
+    while (readBytes < varRef->size){
+        readBytes += read(server, data + readBytes, varRef->size - readBytes);
+    }
     sem_post(&peticiones);
     return data;
 }
 
+//NOTE: C doesnt know the size of the data pointer
 void dsm_overwrite(int variable, void* data){
-    sem_wait(&peticiones);
-    //As always, the operation first
+    sem_wait(&peticiones); 
+    //Set the operation 
     int op = OVERWRITE;
+    //Get the reference to the var and send it
+    var_ref* varRef = vector_get(&variables, variable);
+    #if DEBUG
+        printf("\n" KGRN "[WRITE]" KNRM ": Inicio.\n");
+        printf("Escribiendo datos en el server, datos de la referencia:\n");
+        printf(KWHT "\t-> " KNRM "size: %ld\n", varRef->size);
+        printf(KWHT "\t-> " KNRM "page: %ld\n", varRef->pageNum);
+        printf(KWHT "\t-> " KNRM "offset: %ld\n", varRef->offset);
+    #endif 
+    //As always, the operation first
     send(server, &op, sizeof(int), 0);
-    //Get the internal reference to the var and send it
-    var_ref* var = vector_get(&variables, variable);
-
-    send(server, var, sizeof(var_ref), 0);
-    
+    send(server, varRef, sizeof(var_ref), 0);
     //Send the data to overwrite the node
-    send(server, data, sizeof(var->size), 0);
+    long sentBytes = 0; //Record of how many bytes we sent
+    while(sentBytes < varRef->size){ //Keep sending till all is done
+        sentBytes += send(server, data + sentBytes, varRef->size - sentBytes, 0);
+    }
     sem_post(&peticiones);
     return;
 }
